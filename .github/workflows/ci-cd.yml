@@ -1,57 +1,33 @@
 name: CI/CD
-
 on:
-  pull_request:  # quand on propose du code
-    branches: ['release/**','hotfix/**','feat/**',main]
-  push: # quand on pousse sur ces branches
-    branches: [dev,'release/**','hotfix/**','feat/**']
-    tags: ['v*']
-
-# Par défaut, le pipeline peut seulement LIRE le code. Chaque étape qui a besoin
-# de plus demande explicitement sa permission ci-dessous.
-#
-permissions:
-  contents: read
-
-# Une Pull Request mise à jour annule sa vérification précédente (devenue inutile).
-# Sur main, rien n'est jamais interrompu : une livraison en cours va jusqu'au bout.
-concurrency:
-  group: ci-cd-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  push:
+    branches: [main, develop, "feat/**"]
+  pull_request:
+    branches: [main, develop,"release/**"]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    # Base de données et Kafka jetables, démarrés uniquement pour les tests de ce job
-    # puis détruits avec lui. Les identifiants ci-dessous ne protègent que ces
-    # conteneurs éphémères : ce ne sont pas des secrets.
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_DB: stock_test
-          POSTGRES_USER: ci
-          POSTGRES_PASSWORD: ci
-        ports:
-          - 5432:5432
-        # Les tests ne démarrent que lorsque la base accepte les connexions
-        options: >-
-          --health-cmd "pg_isready -U ci -d stock_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
 
-      kafka:
-        # Image officielle Apache : un seul broker en mode KRaft, joignable sur localhost:9092
-        image: apache/kafka:4.0.0
-        ports:
-          - 9092:9092
-        # Les tests ne démarrent que lorsque le broker répond
-        options: >-
-          --health-cmd "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"
-          --health-interval 10s
-          --health-timeout 10s
-          --health-retries 10
+    # ── À RÉACTIVER quand les tests d'intégration existeront ──────────────────
+    # Base de données jetable, démarrée uniquement pour les tests de ce job
+    # puis détruite avec lui. Les identifiants ci-dessous ne protègent que ce
+    # conteneur éphémère : ce ne sont pas des secrets.
+    # services:
+    #   postgres:
+    #     image: postgres:17
+    #     env:
+    #       POSTGRES_DB: stock_test
+    #       POSTGRES_USER: ci
+    #       POSTGRES_PASSWORD: ci
+    #     ports:
+    #       - 5432:5432
+    #     # Les tests ne démarrent que lorsque la base accepte les connexions
+    #     options: >-
+    #       --health-cmd "pg_isready -U ci -d stock_test"
+    #       --health-interval 5s
+    #       --health-timeout 5s
+    #       --health-retries 10
 
     steps:
       - name: Récupérer le code source
@@ -65,14 +41,13 @@ jobs:
           cache: maven           # réutilise les dépendances téléchargées lors des exécutions précédentes
 
       - name: Lancer les tests et produire le JAR
-        # Pointe l'application vers les conteneurs ci-dessus. Ces variables ont priorité
-        # sur application.yml et application-test.yml : elles valent pour tous les tests,
-        # avec ou sans le profil "test", sans modifier les fichiers de configuration.
-        env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/stock_test
-          SPRING_DATASOURCE_USERNAME: ci
-          SPRING_DATASOURCE_PASSWORD: ci
-          SPRING_KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+        # ── À RÉACTIVER avec le service postgres ci-dessus ──
+        # Pointe l'application vers le conteneur. Ces variables ont priorité
+        # sur application.yml et application-test.yml.
+        # env:
+        #   SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/stock_test
+        #   SPRING_DATASOURCE_USERNAME: ci
+        #   SPRING_DATASOURCE_PASSWORD: ci
         run: mvn -B -ntp -U clean verify
 
       - name: Transmettre le JAR testé au job build
@@ -83,11 +58,7 @@ jobs:
           name: app-jar                  # même nom que dans le download-artifact du job build
           path: target/*.jar
           if-no-files-found: error       # échoue ici si aucun JAR n'a été produit
-          retention-days: 1              # inutile de le garder plus longtemps
-
-  # ───────────────────────────────────────────────────────────────────────────
-  # ÉTAPE 1 — Tester et construire l'image (une seule fois pour tout le pipeline)
-  # ───────────────────────────────────────────────────────────────────────────
+          retention-days: 1              # inutile de le garder plus longtemps───────────────────────────────────────
   build:
     needs: test
     if: github.event_name == 'push'
