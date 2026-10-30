@@ -6,8 +6,8 @@ on:
     branches: [main, develop,"release/**"]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+#  test:
+ #   runs-on: ubuntu-latest
 
     # ── À RÉACTIVER quand les tests d'intégration existeront ──────────────────
     # Base de données jetable, démarrée uniquement pour les tests de ce job
@@ -29,16 +29,16 @@ jobs:
     #       --health-timeout 5s
     #       --health-retries 10
 
-    steps:
-      - name: Récupérer le code source
-        uses: actions/checkout@v5
+ #   steps:
+   #   - name: Récupérer le code source
+   #     uses: actions/checkout@v5
 
-      - name: Installer Java 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven           # réutilise les dépendances téléchargées lors des exécutions précédentes
+    #  - name: Installer Java 21
+    #    uses: actions/setup-java@v5
+    #    with:
+     #     distribution: temurin
+       #   java-version: '21'
+        #  cache: maven           # réutilise les dépendances téléchargées lors des exécutions précédentes
 
      # - name: Lancer les tests et produire le JAR
         # ── À RÉACTIVER avec le service postgres ci-dessus ──
@@ -50,18 +50,17 @@ jobs:
         #   SPRING_DATASOURCE_PASSWORD: ci
         #run: mvn -B -ntp -U clean verify
 
-      - name: Transmettre le JAR testé au job build
+     # - name: Transmettre le JAR testé au job build
         # Le job build tourne sur une autre machine : sans cet envoi, il ne trouverait
         # pas le JAR. On transmet exactement celui qui vient de passer les tests.
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-jar                  # même nom que dans le download-artifact du job build
-          path: target/*.jar
-          if-no-files-found: error       # échoue ici si aucun JAR n'a été produit
-          retention-days: 1              # inutile de le garder plus longtemps───────────────────────────────────────
+       # uses: actions/upload-artifact@v4
+      #  with:
+       #   name: app-jar                  # même nom que dans le download-artifact du job build
+        #  path: target/*.jar
+        #  if-no-files-found: error       # échoue ici si aucun JAR n'a été produit
+         # retention-days: 1              # inutile de le garder plus longtemps───────────────────────────────────────
   build:
     #needs: test
-    if: github.event_name == 'push'
     name: Tests et construction de l'image
     runs-on: ubuntu-latest
     permissions:
