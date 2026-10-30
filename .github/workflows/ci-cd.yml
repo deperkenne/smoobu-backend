@@ -121,8 +121,8 @@ jobs:
   # ───────────────────────────────────────────────────────────────────────────
   staging:
     name: Staging
-    needs: [build]
-    if: github.ref == 'refs/heads/develop'
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     permissions:
       packages: read           # le serveur doit pouvoir télécharger l'image
     uses: ./.github/workflows/deploy_staging.yml
