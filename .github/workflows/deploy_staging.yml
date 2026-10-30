@@ -45,6 +45,7 @@ jobs:
       # une fois l'environment destiner est charger github recupere toutes variable lie a cette environement
       DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
       SERVER: ${{ vars.SSH_USER }}@${{ secrets.SSH_HOST }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
 
     steps:
       - name: Préparer l'accès sécurisé au serveur
@@ -59,7 +60,7 @@ jobs:
           chmod 600 ~/.ssh/id_deploy
           #printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           # Récupération automatique et propre de l'empreinte du serveur distant
-          ssh-keyscan -p 23501 -H "$SERVER" >> ~/.ssh/known_hosts
+          ssh-keyscan -p 23501 -H "$SSH_HOST" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
       - name: Autoriser temporairement le serveur à télécharger l'image
