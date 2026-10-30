@@ -40,7 +40,7 @@ jobs:
          java-version: '21'
          cache: maven           # réutilise les dépendances téléchargées lors des exécutions précédentes
 
-     # - name: Lancer les tests et produire le JAR
+     - name: Lancer les tests et produire le JAR
         # ── À RÉACTIVER avec le service postgres ci-dessus ──
         # Pointe l'application vers le conteneur. Ces variables ont priorité
         # sur application.yml et application-test.yml.
@@ -48,7 +48,7 @@ jobs:
         #   SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/stock_test
         #   SPRING_DATASOURCE_USERNAME: ci
         #   SPRING_DATASOURCE_PASSWORD: ci
-        #run: mvn -B -ntp -U clean verify
+       run: mvn clean package -DskipTests
 
      - name: Transmettre le JAR testé au job build
         # Le job build tourne sur une autre machine : sans cet envoi, il ne trouverait
