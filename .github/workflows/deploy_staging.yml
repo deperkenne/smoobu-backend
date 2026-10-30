@@ -49,7 +49,7 @@ jobs:
     steps:
       - name: Préparer l'accès sécurisé au serveur
         env:
-          SERVER: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
+          SERVER: ${{ vars.SSH_USER }}@${{ secrets.SSH_HOST }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         # known_hosts : on se connecte uniquement au serveur attendu (protection contre l'usurpation)
