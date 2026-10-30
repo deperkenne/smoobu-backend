@@ -1,4 +1,7 @@
-target/
+# On exclut tout target/ (classes, rapports...) sauf le JAR final,
+# seul fichier dont l'image a besoin.
+target/*
+!target/*.jar
 .git/
 .idea/
 .env
