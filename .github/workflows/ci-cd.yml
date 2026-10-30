@@ -121,7 +121,7 @@ jobs:
   # ───────────────────────────────────────────────────────────────────────────
   staging:
     name: Staging
-    needs: [test,build]
+    needs: [build]
     if: github.ref == 'refs/heads/develop'
     permissions:
       packages: read           # le serveur doit pouvoir télécharger l'image
