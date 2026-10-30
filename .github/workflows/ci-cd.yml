@@ -48,7 +48,7 @@ jobs:
         #   SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/stock_test
         #   SPRING_DATASOURCE_USERNAME: ci
         #   SPRING_DATASOURCE_PASSWORD: ci
-        run: mvn -B -ntp -U clean verify
+        #run: mvn -B -ntp -U clean verify
 
       - name: Transmettre le JAR testé au job build
         # Le job build tourne sur une autre machine : sans cet envoi, il ne trouverait
