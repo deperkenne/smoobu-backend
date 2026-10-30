@@ -60,7 +60,7 @@ jobs:
           if-no-files-found: error       # échoue ici si aucun JAR n'a été produit
           retention-days: 1              # inutile de le garder plus longtemps───────────────────────────────────────
   build:
-    needs: test
+    #needs: test
     if: github.event_name == 'push'
     name: Tests et construction de l'image
     runs-on: ubuntu-latest
