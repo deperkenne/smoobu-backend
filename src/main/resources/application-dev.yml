@@ -1,0 +1,9 @@
+spring:
+  jpa:
+    hibernate:
+      # Hibernate crée/met à jour les tables à partir des entités (dev uniquement)
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true

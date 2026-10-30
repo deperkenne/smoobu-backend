@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: dd
+  profiles:
+    # Profil utilisé si aucun n'est précisé au lancement
+    default: dev
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ddclean}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+
+  jpa:
+    # Les services gèrent leurs transactions : pas de chargement paresseux dans la vue
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
