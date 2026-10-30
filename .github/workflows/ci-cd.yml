@@ -40,17 +40,23 @@ jobs:
          java-version: '21'
          cache: maven           # réutilise les dépendances téléchargées lors des exécutions précédentes
 
-     # - name: Lancer les tests et produire le JAR
-        # ── À RÉACTIVER avec le service postgres ci-dessus ──
-        # Pointe l'application vers le conteneur. Ces variables ont priorité
-        # sur application.yml et application-test.yml.
-        # env:
-        #   SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/stock_test
-        #   SPRING_DATASOURCE_USERNAME: ci
-        #   SPRING_DATASOURCE_PASSWORD: ci
-        #run: mvn -B -ntp -U clean verify
+     # Pour l'instant : on produit uniquement le JAR, sans exécuter les tests.
+     # -DskipTests compile quand même les classes de test (une erreur de
+     # compilation dans src/test fait donc échouer le job), mais ne les lance pas.
+     - name: Produire le JAR (tests désactivés)
+       run: mvn -B -ntp clean package -DskipTests
 
-     - name: Transmettre le JAR testé au job build
+     # ── À RÉACTIVER quand les tests existeront (remplace l'étape ci-dessus) ──
+     # - name: Lancer les tests et produire le JAR
+     #   # Pointe l'application vers le conteneur postgres. Ces variables ont
+     #   # priorité sur application.yml et application-test.yml.
+     #   env:
+     #     SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/stock_test
+     #     SPRING_DATASOURCE_USERNAME: ci
+     #     SPRING_DATASOURCE_PASSWORD: ci
+     #   run: mvn -B -ntp clean verify
+
+     - name: Transmettre le JAR au job build
         # Le job build tourne sur une autre machine : sans cet envoi, il ne trouverait
         # pas le JAR. On transmet exactement celui qui vient de passer les tests.
        uses: actions/upload-artifact@v4
@@ -58,7 +64,9 @@ jobs:
          name: app-jar                  # même nom que dans le download-artifact du job build
          path: target/*.jar
          if-no-files-found: error       # échoue ici si aucun JAR n'a été produit
-         retention-days: 1              # inutile de le garder plus longtemps───────────────────────────────────────
+         retention-days: 1              # inutile de le garder plus longtemps
+
+  # ───────────────────────────────────────────────────────────────────────────
   build:
     needs: test
     name: Tests et construction de l'image
