@@ -40,7 +40,7 @@ jobs:
           java-version: '21'
           cache: maven           # réutilise les dépendances téléchargées lors des exécutions précédentes
 
-      - name: Lancer les tests et produire le JAR
+     # - name: Lancer les tests et produire le JAR
         # ── À RÉACTIVER avec le service postgres ci-dessus ──
         # Pointe l'application vers le conteneur. Ces variables ont priorité
         # sur application.yml et application-test.yml.
