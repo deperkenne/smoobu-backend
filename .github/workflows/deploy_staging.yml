@@ -44,8 +44,7 @@ jobs:
       IMAGE: ${{ inputs.image }}
       # une fois l'environment destiner est charger github recupere toutes variable lie a cette environement
       DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
-      HEALTH_URL: ${{ vars.HEALTH_URL }}
-      SERVER: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
+      SERVER: ${{ vars.SSH_USER }}@${{ secrets.SSH_HOST }}
 
     steps:
       - name: Préparer l'accès sécurisé au serveur
