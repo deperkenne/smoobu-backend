@@ -1,25 +1,23 @@
 # Étape 1 : compilation du JAR avec le wrapper Maven du projet
-FROM eclipse-temurin:24-jdk AS build
-WORKDIR /build
+FROM eclipse-temurin:21-jre
 
-# Dépendances d'abord : la couche reste en cache tant que pom.xml ne change pas
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
-RUN chmod +x mvnw && ./mvnw -q -B dependency:go-offline
-
-COPY src/ src/
-RUN ./mvnw -q -B package -DskipTests
-
-# Étape 2 : image d'exécution, sans JDK ni sources
-FROM eclipse-temurin:24-jre
 WORKDIR /app
 
-COPY --from=build /build/target/dd-*.jar app.jar
+COPY target/management-*.jar app.jar
 
-# L'application ne tourne jamais en root
+# Dossier des logs (lu par logback-spring.xml via APP_LOG_DIR), accessible en écriture
+# par l'utilisateur sans privilèges de l'application
+ENV APP_LOG_DIR=/app/logs
+RUN mkdir -p /app/logs && chown 1001:1001 /app/logs
+
+# L'application ne tourne jamais en root : un utilisateur sans privilèges suffit
 USER 1001:1001
 
-EXPOSE 8080
+EXPOSE 8094
+
+# MaxRAMPercentage : la JVM adapte sa mémoire à la limite du conteneur
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
+
 
 # La JVM adapte sa mémoire à la limite du conteneur
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
