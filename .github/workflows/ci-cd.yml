@@ -1,0 +1,133 @@
+name: CI/CD
+on:
+  push:
+    branches: [main, develop, "feat/**"]
+  pull_request:
+    branches: [main, develop,"release/**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # ── À RÉACTIVER quand les tests d'intégration existeront ──────────────────
+    # Base de données jetable, démarrée uniquement pour les tests de ce job
+    # puis détruite avec lui. Les identifiants ci-dessous ne protègent que ce
+    # conteneur éphémère : ce ne sont pas des secrets.
+    # services:
+    #   postgres:
+    #     image: postgres:17
+    #     env:
+    #       POSTGRES_DB: stock_test
+    #       POSTGRES_USER: ci
+    #       POSTGRES_PASSWORD: ci
+    #     ports:
+    #       - 5432:5432
+    #     # Les tests ne démarrent que lorsque la base accepte les connexions
+    #     options: >-
+    #       --health-cmd "pg_isready -U ci -d stock_test"
+    #       --health-interval 5s
+    #       --health-timeout 5s
+    #       --health-retries 10
+
+    steps:
+     - name: Récupérer le code source
+       uses: actions/checkout@v5
+
+     - name: Installer Java 21
+       uses: actions/setup-java@v5
+       with:
+         distribution: temurin
+         java-version: '21'
+         cache: maven           # réutilise les dépendances téléchargées lors des exécutions précédentes
+
+     # Pour l'instant : on produit uniquement le JAR, sans exécuter les tests.
+     # -DskipTests compile quand même les classes de test (une erreur de
+     # compilation dans src/test fait donc échouer le job), mais ne les lance pas.
+     - name: Produire le JAR (tests désactivés)
+       run: mvn -B -ntp clean package -DskipTests
+
+     # ── À RÉACTIVER quand les tests existeront (remplace l'étape ci-dessus) ──
+     # - name: Lancer les tests et produire le JAR
+     #   # Pointe l'application vers le conteneur postgres. Ces variables ont
+     #   # priorité sur application.yml et application-test.yml.
+     #   env:
+     #     SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/stock_test
+     #     SPRING_DATASOURCE_USERNAME: ci
+     #     SPRING_DATASOURCE_PASSWORD: ci
+     #   run: mvn -B -ntp clean verify
+
+     - name: Transmettre le JAR au job build
+        # Le job build tourne sur une autre machine : sans cet envoi, il ne trouverait
+        # pas le JAR. On transmet exactement celui qui vient de passer les tests.
+       uses: actions/upload-artifact@v4
+       with:
+         name: app-jar                  # même nom que dans le download-artifact du job build
+         path: target/*.jar
+         if-no-files-found: error       # échoue ici si aucun JAR n'a été produit
+         retention-days: 1              # inutile de le garder plus longtemps
+
+  # ───────────────────────────────────────────────────────────────────────────
+  build:
+    needs: test
+    name: Tests et construction de l'image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write          # nécessaire pour publier l'image dans le registre GitHub
+    outputs:
+      # Référence IMMUABLE de l'image (son empreinte sha256) transmise aux déploiements :
+      # staging, préproduction et production reçoivent exactement les mêmes octets.
+      image: ${{ steps.reference.outputs.image }}
+    steps:
+      - name: Récupérer le code source
+        uses: actions/checkout@v5
+      - name: Récupérer le jar testé par le job test
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: target           # le Dockerfile copie target/management-*.jar
+      - name: Calculer le nom de l'image
+        id: name
+        # Le registre exige un nom en minuscules
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - name: Préparer l'outil de construction Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Se connecter au registre d'images
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}    # jeton temporaire fourni par GitHub, aucun mot de passe stocké
+
+      - name: Construire l'image (et la publier si on est sur main)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # Étiquette lisible par un humain : le commit exact qui a produit l'image
+          tags: ${{ steps.name.outputs.image }}:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Mémoriser la référence immuable de l'image
+        id: reference
+        if: github.event_name == 'push'
+        run: echo "image=${{ steps.name.outputs.image }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # ÉTAPE 2 — Staging : déploiement automatique dès que l'image est prête
+  # ───────────────────────────────────────────────────────────────────────────
+  staging:
+    name: Staging
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    permissions:
+      packages: read           # le serveur doit pouvoir télécharger l'image
+    uses: ./.github/workflows/deploy_staging.yml
+    with:
+      environment: staging
+      image: ${{ needs.build.outputs.image }}
+    secrets: inherit
+
