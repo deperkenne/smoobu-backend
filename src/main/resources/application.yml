@@ -1,18 +1,45 @@
 spring:
   application:
     name: dd
-  profiles:
-    # Profil utilisé si aucun n'est précisé au lancement
-    default: dev
 
+  # Valeurs en dur pour l'instant (à passer en variables d'environnement plus tard)
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/ddclean}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    url: jdbc:postgresql://192.168.178.27:5433/smoobudb
+    username: leticia
+    password: leticia
 
   jpa:
-    # Les services gèrent leurs transactions : pas de chargement paresseux dans la vue
-    open-in-view: false
     hibernate:
-      ddl-auto: validate
+      # Hibernate crée/met à jour les tables à partir des entités
+      # (en attendant un outil de migration comme Flyway)
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    # Évite de garder une connexion à la base ouverte pendant tout le rendu HTTP
+    open-in-view: false
+
+  # Sécurité : validation des JWT émis par Keycloak
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Spring récupère la clé publique (JWKS) de ce realm pour vérifier la signature de chaque token.
+          # Format : http://<keycloak-host>:<port>/realms/<realm>
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://192.168.178.27:8090/realms/orderManagement}
+
+app:
+  security:
+    keycloak:
+      # Doit correspondre exactement au Client ID dans Keycloak (lecture de resource_access.{client-id}.roles)
+      client-id: ${KEYCLOAK_CLIENT_ID:order-management-app}
+keycloak:
+  admin:
+    server-url: ${KEYCLOAK_SERVER_URL:http://192.168.178.27:8090}
+    realm: ${KEYCLOAK_REALM:orderManagement}
+    admin-client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:ddclean-backend}   # client confidentiel du back-end
+    admin-client-secret: ${KEYCLOAK_ADMIN_SECRET}                  # jamais en clair
+    roles-client-id: ${KEYCLOAK_CLIENT_ID:order-management-app}    # client qui porte les rôles
+    redirect-uri: ${APP_FRONTEND_URL:http://localhost:5173}

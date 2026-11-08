@@ -1,41 +1,70 @@
 package com.clean.dd.reservation;
 
+import com.clean.dd.reservation.dto.ReservationResponse;
+import com.clean.dd.reservation.dto.SimulateReservationRequest;
+import com.clean.dd.shared.security.Caller;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
+/** simulate : ADMIN (lecture des e-mails Smoobu) ; lectures : CUSTOMER (ses réservations) ou ADMIN (toutes). */
 @RestController
-@RequestMapping("/api/reservations")
+@RequestMapping("/api")
 public class ReservationController {
 
-	private static final Logger log = LoggerFactory.getLogger(ReservationController.class);
 	private final ReservationService reservationService;
 
-    public ReservationController(ReservationService reservationService) {
-        this.reservationService = reservationService;
-    }
+	public ReservationController(ReservationService reservationService) {
+		this.reservationService = reservationService;
+	}
 
-    @PostMapping("/batch")
-    @ResponseStatus(HttpStatus.CREATED)
+	/** Simule la réception d'e-mails Smoobu : création, ou mise à jour si bookingReference existe. */
+	@PostMapping("/reservations/simulate")
+	public List<ReservationResponse> simulate(
+			@RequestBody @NotEmpty List<@Valid SimulateReservationRequest> requests) {
+		return reservationService.simulate(requests);
+	}
 
-    public List<Reservation> save(@RequestBody @NotEmpty List<@Valid Reservation> reservations) {
+	/** Toutes les réservations de la base, sans jeton (route publique). */
+	@GetMapping("/reservations")
+	public List<ReservationResponse> listAll() {
+		return reservationService.listAll();
+	}
 
-		log.info("Réception de {} réservation(s)", reservations.size());
+	/** Réservations du customer connecté ; le customer vient du jeton, jamais de la requête. */
+	@GetMapping("/reservations/mine")
+	@PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
+	public List<ReservationResponse> listMine(JwtAuthenticationToken authentication) {
+		return reservationService.listMine(Caller.of(authentication));
+	}
 
-		reservations.forEach(r -> log.info(
-			"Réservation reçue : n°{} | logement={} | du {} au {} | prépayée={} ",
-			r.getBookingNumber(), r.getPropertyName(), r.getCheckIn(), r.getCheckOut(),
-			r.getGuestMessage()));
+	/** Réservations annulées (statut CANCELLED), les plus récemment annulées d'abord. */
+	@GetMapping("/reservations/cancelled")
+	@PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
+	public List<ReservationResponse> listCancelled(JwtAuthenticationToken authentication) {
+		return reservationService.listCancelled(Caller.of(authentication));
+	}
 
-        return reservationService.saveAll(reservations);
-    }
+	@GetMapping("/properties/{propertyId}/reservations")
+	@PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
+	public List<ReservationResponse> listByProperty(
+			JwtAuthenticationToken authentication,
+			@PathVariable UUID propertyId,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+		return reservationService.listByProperty(Caller.of(authentication), propertyId, from, to);
+	}
+
+	@GetMapping("/reservations/{id}")
+	@PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
+	public ReservationResponse get(JwtAuthenticationToken authentication, @PathVariable Long id) {
+		return reservationService.get(Caller.of(authentication), id);
+	}
 }

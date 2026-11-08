@@ -1,0 +1,136 @@
+### Scénario Owner -> Property -> Room -> Reservation
+### Lancer l'appli : ./mvnw spring-boot:run
+### Pour rejouer : changer les deux labels et les bookingReference (tous uniques).
+### Coller les access tokens Keycloak (realm ddclean) : un utilisateur CUSTOMER et un ADMIN (simulate).
+### Le customer du owner est lu dans le token, pas dans le JSON.
+
+@host = http://localhost:8080
+@customerToken = <access token CUSTOMER>
+@adminToken = <access token ADMIN>
+@loftLabel = Loft am Pegnitztal Nürnberg
+@studioLabel = Studio Altstadt Nürnberg
+
+### 1. Créer un propriétaire avec 2 logements et leurs chambres
+POST {{host}}/api/owners
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "name": "Anna Schmidt",
+  "email": "anna@example.com",
+  "phone": "+49 911 000000",
+  "properties": [
+    { "name": "Loft Pegnitz", "emailLabel": "{{loftLabel}}", "city": "Nürnberg", "postalCode": "90402",
+      "rooms": [ { "number": "101", "price": 45.00 }, { "number": "2B", "price": 55.50 } ] },
+    { "name": "Studio Altstadt", "emailLabel": "{{studioLabel}}", "city": "Nürnberg",
+      "rooms": [ { "number": "Mansarde", "price": 60.00 } ] }
+  ]
+}
+
+> {%
+  client.global.set("ownerId", response.body.id);
+  client.global.set("propertyId", response.body.properties[0].id);
+%}
+
+### 1b. Ajouter une chambre à un logement existant
+POST {{host}}/api/properties/{{propertyId}}/rooms
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{ "number": "102", "price": 48.00 }
+
+### 1c. Chambres du logement
+GET {{host}}/api/properties/{{propertyId}}/rooms
+Authorization: Bearer {{customerToken}}
+
+### 2. 3 réservations sur le premier logement, en une seule liste
+POST {{host}}/api/reservations/simulate
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+[
+  { "emailLabel": "{{loftLabel}}", "roomNumber": "101", "bookingReference": "BK-9001-1",
+    "arrivalDate": "2026-11-02", "arrivalDay": "Montag", "departureDate": "2026-11-05", "channel": "Booking.com", "status": "CONFIRMED" },
+  { "emailLabel": "{{loftLabel}}", "roomNumber": "2B", "bookingReference": "BK-9001-2",
+    "arrivalDate": "2026-11-06", "arrivalDay": "Freitag", "departureDate": "2026-11-09", "channel": "Airbnb", "status": "CONFIRMED" },
+  { "emailLabel": "{{loftLabel}}", "roomNumber": "101", "bookingReference": "BK-9001-3",
+    "arrivalDate": "2026-11-12", "arrivalDay": "Donnerstag", "departureDate": "2026-11-14", "channel": "Booking.com", "status": "CONFIRMED" }
+]
+
+> {% client.global.set("reservationId", response.body[0].id); %}
+
+### 2b. Sans roomNumber -> roomNumber = "unique" (logement à une seule chambre : prix de cette chambre)
+POST {{host}}/api/reservations/simulate
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+[
+  { "emailLabel": "{{studioLabel}}", "bookingReference": "BK-9001-4",
+    "arrivalDate": "2026-11-16", "arrivalDay": "Montag", "departureDate": "2026-11-18", "channel": "Airbnb", "status": "CONFIRMED" }
+]
+
+### 3. Renvoyer la réservation 1 modifiée -> mise à jour, pas de doublon
+POST {{host}}/api/reservations/simulate
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+[
+  { "emailLabel": "{{loftLabel}}", "roomNumber": "101", "bookingReference": "BK-9001-1",
+    "arrivalDate": "2026-11-02", "arrivalDay": "Montag", "departureDate": "2026-11-06", "channel": "Booking.com", "status": "MODIFIED" }
+]
+
+### 4a. emailLabel inconnu -> 404 (toute la liste est annulée)
+POST {{host}}/api/reservations/simulate
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+[
+  { "emailLabel": "Logement inconnu", "roomNumber": "101", "bookingReference": "BK-9001-X",
+    "arrivalDate": "2026-11-02", "arrivalDay": "Montag", "departureDate": "2026-11-05", "channel": "Booking.com", "status": "CONFIRMED" }
+]
+
+### 4b. Chambre inconnue -> 404
+POST {{host}}/api/reservations/simulate
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+[
+  { "emailLabel": "{{loftLabel}}", "roomNumber": "999", "bookingReference": "BK-9001-Y",
+    "arrivalDate": "2026-11-02", "arrivalDay": "Montag", "departureDate": "2026-11-05", "channel": "Booking.com", "status": "CONFIRMED" }
+]
+
+### 5. Lister les réservations du premier logement -> 3
+GET {{host}}/api/properties/{{propertyId}}/reservations
+Authorization: Bearer {{customerToken}}
+
+### 5b. Filtrer par période
+GET {{host}}/api/properties/{{propertyId}}/reservations?from=2026-11-01&to=2026-11-07
+Authorization: Bearer {{customerToken}}
+
+### Toutes les réservations
+GET {{host}}/api/reservations
+Authorization: Bearer {{customerToken}}
+
+### Réservations du customer connecté (customer lu dans le jeton)
+GET {{host}}/api/reservations/mine
+Authorization: Bearer {{customerToken}}
+
+### Détails
+GET {{host}}/api/reservations/{{reservationId}}
+Authorization: Bearer {{customerToken}}
+
+###
+GET {{host}}/api/properties/{{propertyId}}
+Authorization: Bearer {{customerToken}}
+
+###
+GET {{host}}/api/owners/{{ownerId}}
+Authorization: Bearer {{customerToken}}
+
+###
+GET {{host}}/api/owners/{{ownerId}}/properties
+Authorization: Bearer {{customerToken}}
+
+###
+GET {{host}}/api/owners
+Authorization: Bearer {{customerToken}}

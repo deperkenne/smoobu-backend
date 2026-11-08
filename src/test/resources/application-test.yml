@@ -1,0 +1,10 @@
+# Profil test : base dédiée ddclean_test (jamais smoobudb).
+# Utilisateur et mot de passe hérités de application.yml.
+spring:
+  datasource:
+    url: jdbc:postgresql://192.168.178.27:5433/ddclean_test
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
